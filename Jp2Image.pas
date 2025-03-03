@@ -5,8 +5,8 @@ unit Jp2Image;
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 // Description:	Reader for JPEG2000 images                                    //
-// Version:	0.1                                                           //
-// Date:	02-MAR-2025                                                   //
+// Version:	0.2                                                           //
+// Date:	03-MAR-2025                                                   //
 // License:     MIT                                                           //
 // Target:	Win64, Free Pascal, Delphi                                    //
 // Copyright:	(c) 2025 Xelitan.com.                                         //
@@ -59,17 +59,29 @@ type
     cmprof_: pjas_cmprof_t;
   end;
   pjas_image_t = ^jas_image_t;
+  jas_logtype_t = Cardinal;
+  Tjas_vlogmsgf_func = function(typ: jas_logtype_t; const fmt: PAnsiChar; ap: array of const): Integer; cdecl;
 
-function jas_init: Integer; cdecl; external 'LibJasper.dll';
-procedure jas_cleanup; cdecl; external 'LibJasper.dll';
-function jas_stream_fopen(filename: PAnsiChar; mode: PAnsiChar): pjas_stream_t; cdecl; external 'LibJasper.dll';
-function jas_stream_memopen(buffer: PByte; buffer_size: Integer): pjas_stream_t; cdecl; external 'LibJasper.dll';
-function jas_image_decode(stream: pjas_stream_t; fmt: Integer; opts: PAnsiChar): Pjas_image_t; cdecl; external 'LibJasper.dll';
-procedure jas_stream_close(stream: pjas_stream_t); cdecl; external 'LibJasper.dll';
-procedure jas_image_destroy(image: pjas_image_t); cdecl; external 'LibJasper.dll';
-function jas_image_cmptprec(image: pjas_image_t; cmptno: Integer): Integer; cdecl; external 'LibJasper.dll';
-function jas_image_cmptsgnd(image: pjas_image_t; cmptno: Integer): Integer; cdecl; external 'LibJasper.dll';
-function jas_image_readcmptsample(image: pjas_image_t; cmptno: Integer; x, y: Integer): Integer; cdecl; external 'LibJasper.dll';
+  function jas_init: Integer; cdecl; external 'LibJasper.dll';
+  procedure jas_cleanup; cdecl; external 'LibJasper.dll';
+  function jas_stream_fopen(filename: PAnsiChar; mode: PAnsiChar): pjas_stream_t; cdecl; external 'LibJasper.dll';
+  function jas_stream_memopen(buffer: PByte; buffer_size: Integer): pjas_stream_t; cdecl; external 'LibJasper.dll';
+  function jas_image_decode(stream: pjas_stream_t; fmt: Integer; opts: PAnsiChar): Pjas_image_t; cdecl; external 'LibJasper.dll';
+  procedure jas_stream_close(stream: pjas_stream_t); cdecl; external 'LibJasper.dll';
+  procedure jas_image_destroy(image: pjas_image_t); cdecl; external 'LibJasper.dll';
+  function jas_image_cmptprec(image: pjas_image_t; cmptno: Integer): Integer; cdecl; external 'LibJasper.dll';
+  function jas_image_cmptsgnd(image: pjas_image_t; cmptno: Integer): Integer; cdecl; external 'LibJasper.dll';
+  function jas_image_readcmptsample(image: pjas_image_t; cmptno: Integer; x, y: Integer): Integer; cdecl; external 'LibJasper.dll';
+
+  procedure jas_conf_clear(); cdecl; external 'LibJasper.dll';
+  function jas_init_library(): Integer; cdecl; external 'LibJasper.dll';
+  procedure jas_conf_set_debug_level(debug_level: Integer); cdecl; external 'LibJasper.dll';
+  procedure jas_conf_set_max_mem_usage(max_mem: Cardinal); cdecl; external 'LibJasper.dll';
+  function jas_cleanup_library(): Integer; cdecl; external 'LibJasper.dll';
+  function jas_init_thread(): Integer; cdecl; external 'LibJasper.dll';
+  function jas_cleanup_thread(): Integer; cdecl; external 'LibJasper.dll';
+  procedure jas_conf_set_vlogmsgf(func: Tjas_vlogmsgf_func); cdecl; external 'LibJasper.dll';
+  function jas_vlogmsgf_discard(typ: jas_logtype_t; const fmt: PAnsiChar; ap: array of const): Integer; cdecl; external 'LibJasper.dll';
 
   { TJp2Image }
 type
@@ -113,7 +125,12 @@ var Stream: pjas_stream_t;
     Buff: array of Byte;
     BufSize: Integer;
 begin
-  if jas_init() <> 0 then raise Exception.Create('Failed');
+  jas_conf_clear();
+  jas_conf_set_max_mem_usage(2*1024*1024*1024);
+  //jas_conf_set_debug_level(2);
+  jas_conf_set_vlogmsgf(jas_vlogmsgf_discard);
+  if jas_init_library() <> 0 then raise Exception.Create('Failed');
+  jas_init_thread();
 
   try
     BufSize := Str.Size - Str.Position;
@@ -188,7 +205,8 @@ begin
       jas_stream_close(Stream);
     end;
   finally
-    jas_cleanup;
+    jas_cleanup_thread;
+    jas_cleanup_library;
   end;
 end;
 
